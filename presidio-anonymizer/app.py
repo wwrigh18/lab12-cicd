@@ -95,6 +95,40 @@ class Server:
         def deanonymizers():
             """Return a list of supported deanonymizers."""
             return jsonify(self.deanonymize.get_deanonymizers())
+        
+        # custom for lab
+        @self.app.route("/genz-preview", methods=["GET"])
+        def genz_preview():
+            """Return example Gen-Z anonymization output to make the feature tangible"""
+            content = {
+                      "example": "Call Emily at 577-988-1234",
+                      "example output": "Call GOAT at vibe check",
+                      "description": "Example output of the genz anonymizer."
+                    }
+            return jsonify(content)
+        
+        @self.app.route("/genz", methods=["POST"])
+        def genz():
+            """Return Gen-Z anonymization output"""
+            content = request.get_json()
+            if not content:
+                raise BadRequest("Invalid request json")
+
+            anonymizers_config = AppEntitiesConvertor.operators_config_from_json(
+                content.get("anonymizers")
+            )
+            if AppEntitiesConvertor.check_custom_operator(anonymizers_config):
+                raise BadRequest("Custom type anonymizer is not supported")
+
+            analyzer_results = AppEntitiesConvertor.analyzer_results_from_json(
+                content.get("analyzer_results")
+            )
+            anoymizer_result = self.anonymizer.anonymize(
+                text=content.get("text", ""),
+                analyzer_results=analyzer_results,
+                operators=anonymizers_config,
+            )
+            return Response(anoymizer_result.to_json(), mimetype="application/json")
 
         @self.app.errorhandler(InvalidParamError)
         def invalid_param(err):
